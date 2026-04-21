@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: "Awlith Technologies",
+  description: "AI-powered automation, blockchain solutions & custom software—built for scale.",
 };
 
 export default function RootLayout({
