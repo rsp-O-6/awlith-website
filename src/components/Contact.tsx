@@ -52,7 +52,7 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const contactEndpoint = "/send-message/public";
+  const contactEndpoint = "/api/contact";
 
   function getErrorMessage(responseBody: unknown): string {
     if (!responseBody || typeof responseBody !== "object") {
