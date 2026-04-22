@@ -51,28 +51,75 @@ export default function Contact() {
   const isInView = useInView(ref, { once: true, margin: "-80px" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const contactEndpoint = "/send-message/public";
+
+  function getErrorMessage(responseBody: unknown): string {
+    if (!responseBody || typeof responseBody !== "object") {
+      return "Your message could not be submitted. Please try again in a moment.";
+    }
+
+    const detail = "detail" in responseBody ? responseBody.detail : undefined;
+    const errors = "errors" in responseBody ? responseBody.errors : undefined;
+
+    if (errors && typeof errors === "object" && !Array.isArray(errors)) {
+      const messages = Object.entries(errors)
+        .flatMap(([field, value]) => {
+          if (!Array.isArray(value)) {
+            return [];
+          }
+
+          return value.map((message) => `${field}: ${String(message)}`);
+        })
+        .filter(Boolean);
+
+      if (messages.length > 0) {
+        return messages.join(" ");
+      }
+    }
+
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+
+    if ("message" in responseBody && typeof responseBody.message === "string") {
+      return responseBody.message;
+    }
+
+    return "Your message could not be submitted. Please try again in a moment.";
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError(null);
     const form = e.currentTarget;
     const data = new FormData(form);
+    const payload = {
+      name: String(data.get("name") ?? ""),
+      email: String(data.get("email") ?? ""),
+      company_organization: String(data.get("company_organization") ?? ""),
+      service_of_interest: String(data.get("service_of_interest") ?? ""),
+      project_details: String(data.get("project_details") ?? ""),
+    };
 
     try {
-      const res = await fetch("/", {
+      const res = await fetch(contactEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(data as unknown as Record<string, string>).toString(),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      const responseBody = await res.json().catch(() => null);
+
       if (res.ok) {
+        form.reset();
         setSubmitted(true);
+      } else {
+        setSubmitError(getErrorMessage(responseBody));
       }
     } catch {
-      // Fallback: open mailto
-      const name = data.get("name") as string;
-      const email = data.get("email") as string;
-      const message = data.get("message") as string;
-      window.location.href = `mailto:info@awlith.com?subject=Project Inquiry from ${name}&body=${encodeURIComponent(message)}%0A%0AFrom: ${name} (${email})`;
+      setSubmitError("The website could not reach the API. Start the backend and try again.");
     }
     setSubmitting(false);
   }
@@ -186,16 +233,10 @@ export default function Contact() {
                 <h3 className="text-lg font-bold mb-1">Send a message</h3>
                 <p className="text-sm text-muted-foreground mb-6">Tell us about your project and what you need built.</p>
 
-                {/* Hidden Netlify form field */}
                 <form
-                  name="contact"
-                  method="POST"
-                  data-netlify="true"
                   onSubmit={handleSubmit}
                   className="space-y-4"
                 >
-                  <input type="hidden" name="form-name" value="contact" />
-
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-muted-foreground/80 mb-1.5 tracking-wide uppercase">
@@ -205,6 +246,7 @@ export default function Contact() {
                         type="text"
                         name="name"
                         required
+                        minLength={2}
                         placeholder="Your full name"
                         className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background/60 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-background transition-colors duration-200"
                       />
@@ -229,7 +271,7 @@ export default function Contact() {
                     </label>
                     <input
                       type="text"
-                      name="company"
+                      name="company_organization"
                       placeholder="Where do you work?"
                       className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background/60 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-background transition-colors duration-200"
                     />
@@ -240,7 +282,8 @@ export default function Contact() {
                       Service of Interest
                     </label>
                     <select
-                      name="service"
+                      name="service_of_interest"
+                      required
                       className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background/60 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:bg-background transition-colors duration-200 appearance-none cursor-pointer"
                     >
                       <option value="" className="bg-background">Select a service...</option>
@@ -255,8 +298,9 @@ export default function Contact() {
                       Project Details <span className="text-primary">*</span>
                     </label>
                     <textarea
-                      name="message"
+                      name="project_details"
                       required
+                      minLength={10}
                       rows={4}
                       placeholder="Describe what you want to build, your timeline, and any constraints..."
                       className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-background/60 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-background transition-colors duration-200 resize-none"
@@ -285,6 +329,12 @@ export default function Contact() {
                       </>
                     )}
                   </button>
+
+                  {submitError ? (
+                    <p className="text-sm text-red-600" role="alert">
+                      {submitError}
+                    </p>
+                  ) : null}
                 </form>
               </>
             )}
